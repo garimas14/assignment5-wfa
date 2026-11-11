@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
+                  id="Definitions_HostelOutpass"
+                  targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="hostel-outpass" name="Hostel Out-Pass Request" isExecutable="true">
+    <bpmn:startEvent id="StartEvent_Request" name="Out-pass requested">
+      <bpmn:outgoing>Flow_Start_Check</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <bpmn:serviceTask id="Task_CheckOutpass" name="Check out-pass request">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="check-outpass" retries="3"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Start_Check</bpmn:incoming>
+      <bpmn:outgoing>Flow_Check_Gateway</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:exclusiveGateway id="Gateway_Route" name="Valid request and nights?" default="Flow_Invalid">
+      <bpmn:incoming>Flow_Check_Gateway</bpmn:incoming>
+      <bpmn:outgoing>Flow_Invalid</bpmn:outgoing>
+      <bpmn:outgoing>Flow_DayOut</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Overnight</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:serviceTask id="Task_Reject" name="Mark request rejected">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="issue-outpass" retries="3"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Invalid</bpmn:incoming>
+      <bpmn:outgoing>Flow_Reject_Merge</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:serviceTask id="Task_AutoApprove" name="Auto-approve day out">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="issue-outpass" retries="3"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_DayOut</bpmn:incoming>
+      <bpmn:outgoing>Flow_Auto_Merge</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:userTask id="Task_WardenApproval" name="Warden approval">
+      <bpmn:extensionElements>
+        <zeebe:formDefinition formId="warden-approval-form"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Overnight</bpmn:incoming>
+      <bpmn:outgoing>Flow_Warden_Issue</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:serviceTask id="Task_IssueOutpass" name="Issue out-pass and notify parent">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="issue-outpass" retries="3"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Warden_Issue</bpmn:incoming>
+      <bpmn:outgoing>Flow_Issue_End</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:exclusiveGateway id="Gateway_Merge" name="Merge outcomes">
+      <bpmn:incoming>Flow_Reject_Merge</bpmn:incoming>
+      <bpmn:incoming>Flow_Auto_Merge</bpmn:incoming>
+      <bpmn:outgoing>Flow_Merge_End</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:endEvent id="EndEvent_Done" name="Request completed">
+      <bpmn:incoming>Flow_Merge_End</bpmn:incoming>
+      <bpmn:incoming>Flow_Issue_End</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:sequenceFlow id="Flow_Start_Check" sourceRef="StartEvent_Request" targetRef="Task_CheckOutpass"/>
+    <bpmn:sequenceFlow id="Flow_Check_Gateway" sourceRef="Task_CheckOutpass" targetRef="Gateway_Route"/>
+    <bpmn:sequenceFlow id="Flow_Invalid" name="Invalid" sourceRef="Gateway_Route" targetRef="Task_Reject">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">=not(valid)</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_DayOut" name="Day out (0 nights)" sourceRef="Gateway_Route" targetRef="Task_AutoApprove">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">=valid and nights = 0</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_Overnight" name="Overnight (1+ nights)" sourceRef="Gateway_Route" targetRef="Task_WardenApproval">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">=valid and nights >= 1</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_Reject_Merge" sourceRef="Task_Reject" targetRef="Gateway_Merge"/>
+    <bpmn:sequenceFlow id="Flow_Auto_Merge" sourceRef="Task_AutoApprove" targetRef="Gateway_Merge"/>
+    <bpmn:sequenceFlow id="Flow_Warden_Issue" sourceRef="Task_WardenApproval" targetRef="Task_IssueOutpass"/>
+    <bpmn:sequenceFlow id="Flow_Issue_End" sourceRef="Task_IssueOutpass" targetRef="EndEvent_Done"/>
+    <bpmn:sequenceFlow id="Flow_Merge_End" sourceRef="Gateway_Merge" targetRef="EndEvent_Done"/>
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_HostelOutpass">
+    <bpmndi:BPMNPlane id="BPMNPlane_HostelOutpass" bpmnElement="hostel-outpass">
+      <bpmndi:BPMNShape id="Shape_Start" bpmnElement="StartEvent_Request"><dc:Bounds x="100" y="180" width="36" height="36"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Check" bpmnElement="Task_CheckOutpass"><dc:Bounds x="190" y="158" width="130" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Route" bpmnElement="Gateway_Route" isMarkerVisible="true"><dc:Bounds x="370" y="173" width="50" height="50"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Reject" bpmnElement="Task_Reject"><dc:Bounds x="500" y="40" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Auto" bpmnElement="Task_AutoApprove"><dc:Bounds x="500" y="160" width="140" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Warden" bpmnElement="Task_WardenApproval"><dc:Bounds x="490" y="300" width="160" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Issue" bpmnElement="Task_IssueOutpass"><dc:Bounds x="730" y="300" width="170" height="80"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Merge" bpmnElement="Gateway_Merge" isMarkerVisible="true"><dc:Bounds x="730" y="95" width="50" height="50"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_End" bpmnElement="EndEvent_Done"><dc:Bounds x="1000" y="180" width="36" height="36"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_Start_Check" bpmnElement="Flow_Start_Check"><di:waypoint x="136" y="198"/><di:waypoint x="190" y="198"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Check_Route" bpmnElement="Flow_Check_Gateway"><di:waypoint x="320" y="198"/><di:waypoint x="370" y="198"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Invalid" bpmnElement="Flow_Invalid"><di:waypoint x="395" y="173"/><di:waypoint x="395" y="80"/><di:waypoint x="500" y="80"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_DayOut" bpmnElement="Flow_DayOut"><di:waypoint x="420" y="198"/><di:waypoint x="500" y="200"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Overnight" bpmnElement="Flow_Overnight"><di:waypoint x="395" y="223"/><di:waypoint x="395" y="340"/><di:waypoint x="490" y="340"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Reject_Merge" bpmnElement="Flow_Reject_Merge"><di:waypoint x="640" y="80"/><di:waypoint x="755" y="80"/><di:waypoint x="755" y="95"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Auto_Merge" bpmnElement="Flow_Auto_Merge"><di:waypoint x="640" y="200"/><di:waypoint x="755" y="200"/><di:waypoint x="755" y="145"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Warden_Issue" bpmnElement="Flow_Warden_Issue"><di:waypoint x="650" y="340"/><di:waypoint x="730" y="340"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Issue_End" bpmnElement="Flow_Issue_End"><di:waypoint x="900" y="340"/><di:waypoint x="1018" y="340"/><di:waypoint x="1018" y="216"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Merge_End" bpmnElement="Flow_Merge_End"><di:waypoint x="780" y="120"/><di:waypoint x="1018" y="120"/><di:waypoint x="1018" y="180"/></bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

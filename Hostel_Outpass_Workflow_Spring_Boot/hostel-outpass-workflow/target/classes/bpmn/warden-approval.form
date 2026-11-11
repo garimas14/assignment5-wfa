@@ -1,0 +1,63 @@
+{
+  "components": [
+    {
+      "type": "textfield",
+      "key": "studentName",
+      "label": "Student name",
+      "disabled": true,
+      "validate": { "required": true }
+    },
+    {
+      "type": "textfield",
+      "key": "regNo",
+      "label": "Registration number",
+      "disabled": true,
+      "validate": { "required": true }
+    },
+    {
+      "type": "textfield",
+      "key": "hostelBlock",
+      "label": "Hostel block",
+      "disabled": true
+    },
+    {
+      "type": "textfield",
+      "key": "outDate",
+      "label": "Out date",
+      "disabled": true
+    },
+    {
+      "type": "textfield",
+      "key": "returnDate",
+      "label": "Return date",
+      "disabled": true
+    },
+    {
+      "type": "textfield",
+      "key": "parentPhone",
+      "label": "Parent phone",
+      "disabled": true
+    },
+    {
+      "type": "textarea",
+      "key": "purpose",
+      "label": "Purpose",
+      "disabled": true
+    },
+    {
+      "type": "checkbox",
+      "key": "approved",
+      "label": "Approve this out-pass",
+      "defaultValue": false
+    },
+    {
+      "type": "textarea",
+      "key": "wardenRemarks",
+      "label": "Warden remarks"
+    }
+  ],
+  "type": "default",
+  "id": "warden-approval-form",
+  "executionPlatform": "Camunda Cloud",
+  "executionPlatformVersion": "8.8.0"
+}
